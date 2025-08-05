@@ -2,9 +2,12 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"runtime/debug"
+
+	"github.com/go-playground/form/v4"
 )
 
 func (app *application) render(w http.ResponseWriter, r *http.Request, status int, page string, data templateData) {
@@ -45,4 +48,24 @@ func (app *application) show404(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) clientError(w http.ResponseWriter, status int) {
 	http.Error(w, http.StatusText(status), status)
+}
+
+func (app *application) decodePostForm(r *http.Request, dst any) error {
+	err := r.ParseForm()
+	if err != nil {
+		return err
+	}
+
+	err = app.formDecorder.Decode(dst, r.PostForm)
+
+	if err != nil {
+		var invalidDecodeError *form.InvalidEncodeError
+
+		if errors.As(err, &invalidDecodeError) {
+			panic(err)
+		}
+
+		return err
+	}
+	return nil
 }
