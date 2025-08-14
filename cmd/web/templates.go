@@ -1,19 +1,23 @@
 package main
 
 import (
+	"io/fs"
 	"net/http"
 	"path/filepath"
 	"text/template"
 	"time"
 
 	"snippetbox.siddharthroy.com/internal/models"
+	"snippetbox.siddharthroy.com/ui"
 )
 
 type templateData struct {
-	Snippet     models.Snippet
-	Snippets    []models.Snippet
-	CurrentYear int
-	Form        any
+	Snippet         models.Snippet
+	Snippets        []models.Snippet
+	CurrentYear     int
+	Form            any
+	Flash           string
+	IsAuthenticated bool
 }
 
 func humanDate(t time.Time) string {
@@ -26,14 +30,16 @@ var functions = template.FuncMap{
 
 func (app *application) newTemplateData(r *http.Request) templateData {
 	return templateData{
-		CurrentYear: time.Now().Year(),
+		CurrentYear:     time.Now().Year(),
+		Flash:           app.sessionManager.PopString(r.Context(), "flash"),
+		IsAuthenticated: app.isAuthenticated(r),
 	}
 }
 
 func newTemplateCache() (map[string]*template.Template, error) {
 	cache := map[string]*template.Template{}
 
-	pages, err := filepath.Glob("./ui/html/pages/*.html")
+	pages, err := fs.Glob(ui.Files, "html/pages/*.html")
 
 	if err != nil {
 		return nil, err
@@ -42,13 +48,13 @@ func newTemplateCache() (map[string]*template.Template, error) {
 	for _, page := range pages {
 		name := filepath.Base(page)
 
-		ts, err := template.New(name).Funcs(functions).ParseFiles("./ui/html/base.html")
+		ts, err := template.New(name).Funcs(functions).ParseFiles("html/base.html")
 
 		if err != nil {
 			return nil, err
 		}
 
-		ts, err = ts.ParseGlob("./ui/html/partials/*.html")
+		ts, err = ts.ParseGlob("html/partials/*.html")
 
 		if err != nil {
 			return nil, err
